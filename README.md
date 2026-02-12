@@ -75,21 +75,22 @@ Senzor **Nejbližší svoz** navíc obsahuje:
 
 ### Oznámení den před svozem
 
+V UI přejděte na **Nastavení → Automatizace → + Vytvořit automatizaci → ⋮ → Upravit v YAML** a vložte:
+
 ```yaml
-automation:
-  - alias: "Upozornění na svoz odpadu"
-    trigger:
-      - platform: state
-        entity_id: sensor.svoz_odpadu_karovsko_nejblizsi_svoz
-    condition:
-      - condition: template
-        value_template: "{{ state_attr('sensor.svoz_odpadu_karovsko_nejblizsi_svoz', 'is_tomorrow') }}"
-    action:
-      - service: notify.mobile_app
-        data:
-          title: "🗑️ Svoz odpadu zítra!"
-          message: >
-            Zítra se vyváží: {{ state_attr('sensor.svoz_odpadu_karovsko_nejblizsi_svoz', 'waste_type') }}
+alias: "Upozornění na svoz odpadu"
+trigger:
+  - platform: state
+    entity_id: sensor.svoz_odpadu_karovsko_nejblizsi_svoz
+condition:
+  - condition: template
+    value_template: "{{ state_attr('sensor.svoz_odpadu_karovsko_nejblizsi_svoz', 'is_tomorrow') }}"
+action:
+  - service: notify.mobile_app
+    data:
+      title: "🗑️ Svoz odpadu zítra!"
+      message: >
+        Zítra se vyváží: {{ state_attr('sensor.svoz_odpadu_karovsko_nejblizsi_svoz', 'waste_type') }}
 ```
 
 ### Zobrazení v Lovelace kartě (základní)
