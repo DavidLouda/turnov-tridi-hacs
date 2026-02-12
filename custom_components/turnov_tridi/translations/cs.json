@@ -1,0 +1,40 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Nastavení svozu odpadu",
+        "description": "Zadejte název ulice v Turnově pro zobrazení termínů svozu odpadu.",
+        "data": {
+          "street": "Název ulice"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nepodařilo se připojit k serveru turnovtridi.cz",
+      "no_data": "Pro zadanou ulici nebyla nalezena žádná data o svozu. Zkontrolujte název ulice.",
+      "unknown": "Neočekávaná chyba"
+    },
+    "abort": {
+      "already_configured": "Tato ulice je již nakonfigurována"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "mixed_waste": {
+        "name": "Směsný komunální odpad"
+      },
+      "plastic": {
+        "name": "Plasty"
+      },
+      "paper": {
+        "name": "Papír"
+      },
+      "bio_waste": {
+        "name": "Bio odpad"
+      },
+      "next_collection": {
+        "name": "Nejbližší svoz"
+      }
+    }
+  }
+}

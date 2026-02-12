@@ -1,0 +1,40 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Waste collection setup",
+        "description": "Enter the street name in Turnov to display waste collection schedules.",
+        "data": {
+          "street": "Street name"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to turnovtridi.cz",
+      "no_data": "No collection data found for the given street. Please check the street name.",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "This street is already configured"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "mixed_waste": {
+        "name": "Mixed municipal waste"
+      },
+      "plastic": {
+        "name": "Plastic"
+      },
+      "paper": {
+        "name": "Paper"
+      },
+      "bio_waste": {
+        "name": "Bio waste"
+      },
+      "next_collection": {
+        "name": "Next collection"
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "domain": "turnov_tridi",
+  "name": "Turnov Třídí – Svoz odpadu",
+  "codeowners": ["@davidlouda"],
+  "config_flow": true,
+  "documentation": "https://github.com/davidlouda/turnov-tridi-hacs",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/davidlouda/turnov-tridi-hacs/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}
