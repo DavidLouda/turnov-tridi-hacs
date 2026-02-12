@@ -75,6 +75,7 @@ class TurnovTridiWasteSensor(
         self._street = street
         self._waste_key = waste_key
         self._waste_name_cs = waste_name_cs
+        self._entry_id = entry_id
         self._attr_unique_id = f"{entry_id}_{waste_key}"
         self._attr_translation_key = waste_key
         self._attr_icon = waste_icon
@@ -84,7 +85,7 @@ class TurnovTridiWasteSensor(
     def device_info(self) -> dict[str, Any]:
         """Return device info."""
         return {
-            "identifiers": {(DOMAIN, self._attr_unique_id.rsplit("_", 1)[0])},
+            "identifiers": {(DOMAIN, self._entry_id)},
             "name": f"Svoz odpadu – {self._street}",
             "manufacturer": "Město Turnov",
             "model": "Svoz odpadu",
@@ -154,6 +155,7 @@ class TurnovTridiNextCollectionSensor(
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._street = street
+        self._entry_id = entry_id
         self._attr_unique_id = f"{entry_id}_next_collection"
         self._attr_translation_key = "next_collection"
 
@@ -161,7 +163,7 @@ class TurnovTridiNextCollectionSensor(
     def device_info(self) -> dict[str, Any]:
         """Return device info."""
         return {
-            "identifiers": {(DOMAIN, self._attr_unique_id.rsplit("_", 2)[0])},
+            "identifiers": {(DOMAIN, self._entry_id)},
             "name": f"Svoz odpadu – {self._street}",
             "manufacturer": "Město Turnov",
             "model": "Svoz odpadu",
