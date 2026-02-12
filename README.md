@@ -92,7 +92,7 @@ automation:
             Zítra se vyváží: {{ state_attr('sensor.svoz_odpadu_karovsko_nejblizsi_svoz', 'waste_type') }}
 ```
 
-### Zobrazení v Lovelace kartě
+### Zobrazení v Lovelace kartě (základní)
 
 ```yaml
 type: entities
@@ -104,6 +104,52 @@ entities:
   - entity: sensor.svoz_odpadu_karovsko_papir
   - entity: sensor.svoz_odpadu_karovsko_bio_odpad
 ```
+
+## Custom Lovelace karta 🎨
+
+Součástí integrace je **graficky bohatá Lovelace karta** s:
+
+- 🎯 Barevně odlišenými typy odpadu (šedá = SKO, žlutá = plasty, modrá = papír, zelená = bio)
+- 📍 Zvýrazněním nejbližšího svozu (obrys + pulsní animace pro dnešní svoz)
+- 📅 Časovou osou nadcházejících svozů s barevnými čipy
+- 🏷️ Odznaky „DNES", „ZÍTRA", „za X dní"
+- 🌙 Plnou podporou tmavého režimu
+- ⚙️ Vizuálním editorem konfigurace přímo v Lovelace
+
+### Přidání Lovelace karty
+
+1. Po instalaci integrace se karta automaticky zkopíruje do `www/community/turnov_tridi/`
+2. Přidejte zdroj v **Nastavení → Dashboardy → ⋮ → Zdroje**:
+   - URL: `/local/community/turnov_tridi/turnov-tridi-card.js`
+   - Typ: **JavaScript modul**
+3. Na dashboard přidejte **Ruční kartu** s konfigurací:
+
+```yaml
+type: custom:turnov-tridi-card
+entity: sensor.svoz_odpadu_karovsko_nejblizsi_svoz
+title: Svoz odpadu
+show_header: true
+show_timeline: true
+```
+
+### Možnosti konfigurace karty
+
+| Parametr | Výchozí | Popis |
+|----------|---------|-------|
+| `entity` | *povinný* | Entity ID senzoru „Nejbližší svoz" |
+| `title` | `Svoz odpadu` | Titulek karty |
+| `show_header` | `true` | Zobrazit hlavičku s dalším svozem |
+| `show_timeline` | `true` | Zobrazit časovou osu |
+| `show_days_badge` | `true` | Zobrazit odznaky dní |
+| `compact` | `false` | Kompaktní režim (menší řádky) |
+
+### Vzhled karty
+
+Karta automaticky zobrazí:
+
+- **Hlavička** — další nadcházející svoz s barevnou ikonou, typem odpadu a datem
+- **4 řádky odpadu** — každý typ s barevným proužkem, ikonou, datem a odpočtem dní; nejbližší svoz má zvýrazněný rámeček, dnešní svoz pulsuje
+- **Časová osa** — chronologický přehled všech nadcházejících svozů seskupených po dnech s barevnými čipy
 
 ## Zdroj dat
 
