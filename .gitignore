@@ -21,3 +21,7 @@ Thumbs.db
 # Virtual environments
 venv/
 .venv/
+
+# Tooling
+.pytest_cache/
+.ruff_cache/
