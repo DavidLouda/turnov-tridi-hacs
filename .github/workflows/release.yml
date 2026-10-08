@@ -3,6 +3,8 @@ name: Release
 on:
   push:
     tags: ["*"]
+  # Releases the version from manifest.json; creates the tag if it does not exist
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -13,27 +15,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check the tag matches the manifest version
+      - name: Determine the version
+        id: version
         run: |
           version=$(jq -r .version custom_components/turnov_tridi/manifest.json)
-          if [ "$version" != "$GITHUB_REF_NAME" ]; then
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$version" != "$GITHUB_REF_NAME" ]; then
             echo "::error::Tag $GITHUB_REF_NAME does not match manifest version $version"
             exit 1
           fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Extract release notes from CHANGELOG.md
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          awk -v tag="$GITHUB_REF_NAME" '
+          awk -v tag="$VERSION" '
             /^## / { if (found) exit; found = ($2 == tag); next }
             found { print }
           ' CHANGELOG.md > release_notes.md
           if [ ! -s release_notes.md ]; then
-            echo "::error::CHANGELOG.md has no section for $GITHUB_REF_NAME"
+            echo "::error::CHANGELOG.md has no section for $VERSION"
             exit 1
           fi
 
       - uses: softprops/action-gh-release@v2
         with:
-          name: ${{ github.ref_name }}
+          tag_name: ${{ steps.version.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ steps.version.outputs.version }}
           body_path: release_notes.md
-          prerelease: ${{ contains(github.ref_name, 'b') || contains(github.ref_name, 'rc') }}
+          prerelease: ${{ contains(steps.version.outputs.version, 'b') || contains(steps.version.outputs.version, 'rc') }}
