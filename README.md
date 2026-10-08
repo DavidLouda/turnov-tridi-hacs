@@ -195,7 +195,7 @@ pytest
 ruff check . && ruff format --check .
 ```
 
-GitHub Actions spouští testy, `hassfest` a validaci HACS.
+GitHub Actions spouští testy, `hassfest` a validaci HACS. Release vznikne pushnutím tagu s verzí z `manifest.json`, nebo ručním spuštěním workflow **Release** (tag vytvoří samo); poznámky bere z `CHANGELOG.md`.
 
 ## Zdroj dat
 
