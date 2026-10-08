@@ -12,6 +12,11 @@ Custom Home Assistant integrace pro zobrazení termínů svozu odpadu ve městě
 - 🏠 Konfigurace **ulice** přes GUI (Nastavení → Zařízení a služby)
 - 🔄 Automatická aktualizace dat každých **6 hodin**
 - 📊 Senzory s atributy pro snadnou automatizaci
+- 🗓️ Entita **kalendáře** se všemi svozy
+- 🎨 Vlastní **Lovelace karta**, která se načte automaticky
+- 🔁 Změna ulice bez mazání integrace
+
+Vyžaduje Home Assistant **2025.1** nebo novější.
 
 ### Podporované typy odpadu
 
@@ -22,6 +27,7 @@ Custom Home Assistant integrace pro zobrazení termínů svozu odpadu ve městě
 | Papír | Papír | 📰 |
 | Bio odpad | Bio | 🌿 |
 | Nejbližší svoz | Další svoz libovolného typu | 📅 |
+| Kalendář (`calendar.svoz_odpadu_…`) | Všechny svozy jako celodenní události | 🗓️ |
 
 ## Instalace
 
@@ -48,7 +54,11 @@ Custom Home Assistant integrace pro zobrazení termínů svozu odpadu ve městě
 4. Zadejte **název ulice** (např. `Károvsko`, `Bezručova`, `5. května`)
 5. Klikněte **Odeslat**
 
-Integrace ověří, že pro danou ulici existují data, a vytvoří senzory.
+Integrace ověří, že pro danou ulici existují data, a vytvoří senzory a kalendář.
+
+### Změna ulice
+
+V **Nastavení → Zařízení a služby → Turnov Třídí** klikněte u položky na **⋮ → Překonfigurovat** a zadejte novou ulici. Senzory i jejich historie zůstanou zachovány (ID entit se nemění).
 
 ## Senzory a atributy
 
@@ -59,6 +69,7 @@ Každý senzor typu odpadu poskytuje:
 | `state` | Datum příštího svozu (formát YYYY-MM-DD) |
 | `street` | Název ulice |
 | `waste_type` | Typ odpadu |
+| `waste_key` | Klíč typu odpadu (`mixed_waste`, `plastic`, `paper`, `bio_waste`) |
 | `days_until` | Počet dnů do příštího svozu |
 | `is_today` | `true` pokud je svoz dnes |
 | `is_tomorrow` | `true` pokud je svoz zítra |
@@ -68,8 +79,14 @@ Senzor **Nejbližší svoz** navíc obsahuje:
 
 | Atribut | Popis |
 |---------|-------|
-| `waste_type` | Typ odpadu nejbližšího svozu |
+| `waste_type` | Typ odpadu nejbližšího svozu; více typů ve stejný den je odděleno čárkou (např. `Plasty, Papír`) |
+| `waste_types` | Seznam typů odpadu vyvážených v den nejbližšího svozu |
+| `waste_keys` | Totéž jako klíče (`plastic`, `paper`, …) |
 | `upcoming_summary` | Přehled nejbližších svozů všech typů |
+
+Stav senzorů i odpočet dní se přepočítají každou půlnoc. Pokud je web turnovtridi.cz dočasně nedostupný, senzory dál ukazují poslední známý rozpis.
+
+> Názvy entit v příkladech odpovídají Home Assistantu v češtině. Při anglickém jazyce systému vzniknou anglické názvy (např. `sensor.svoz_odpadu_karovsko_next_collection`).
 
 ## Příklady automatizací
 
@@ -92,6 +109,24 @@ action:
       message: >
         Zítra se vyváží: {{ state_attr('sensor.svoz_odpadu_karovsko_nejblizsi_svoz', 'waste_type') }}
 ```
+
+### Oznámení pomocí kalendáře
+
+```yaml
+alias: "Svoz odpadu – připomenutí večer předem"
+trigger:
+  - platform: calendar
+    event: start
+    entity_id: calendar.svoz_odpadu_karovsko
+    offset: "-5:00:00"
+action:
+  - service: notify.mobile_app
+    data:
+      title: "🗑️ Zítra svoz"
+      message: "{{ trigger.calendar_event.summary }}"
+```
+
+Událost začíná o půlnoci, takže posun `-5:00:00` pošle upozornění v 19:00 předchozího dne. Pokud je víc typů odpadu ve stejný den, přijde upozornění pro každý z nich.
 
 ### Zobrazení v Lovelace kartě (základní)
 
@@ -119,11 +154,9 @@ Součástí integrace je **graficky bohatá Lovelace karta** s:
 
 ### Přidání Lovelace karty
 
-1. Po instalaci integrace se karta automaticky zkopíruje do `www/community/turnov_tridi/`
-2. Přidejte zdroj v **Nastavení → Dashboardy → ⋮ → Zdroje**:
-   - URL: `/local/community/turnov_tridi/turnov-tridi-card.js`
-   - Typ: **JavaScript modul**
-3. Na dashboard přidejte **Ruční kartu** s konfigurací:
+Integrace kartu načte do Home Assistantu sama, žádný zdroj (resource) není potřeba přidávat. Po instalaci nebo aktualizaci stačí obnovit stránku prohlížeče.
+
+Na dashboard přidejte kartu **Turnov Třídí – Svoz odpadu** z výběru karet, nebo **Ruční kartu** s konfigurací:
 
 ```yaml
 type: custom:turnov-tridi-card
@@ -132,6 +165,8 @@ title: Svoz odpadu
 show_header: true
 show_timeline: true
 ```
+
+> **Aktualizace z verze 1.0:** dřívější verze kopírovala kartu do `www/community/turnov_tridi/` a bylo nutné ručně přidat zdroj `/local/community/turnov_tridi/turnov-tridi-card.js`. Integrace starou kopii smaže; zdroj odstraňte v **Nastavení → Dashboardy → ⋮ → Zdroje**.
 
 ### Možnosti konfigurace karty
 
@@ -148,9 +183,19 @@ show_timeline: true
 
 Karta automaticky zobrazí:
 
-- **Hlavička** — další nadcházející svoz s barevnou ikonou, typem odpadu a datem
+- **Hlavička** — další nadcházející svoz s barevnou ikonou, typem odpadu (případně více typů) a datem
 - **4 řádky odpadu** — každý typ s barevným proužkem, ikonou, datem a odpočtem dní; nejbližší svoz má zvýrazněný rámeček, dnešní svoz pulsuje
 - **Časová osa** — chronologický přehled všech nadcházejících svozů seskupených po dnech s barevnými čipy
+
+## Vývoj
+
+```bash
+pip install -r requirements_test.txt
+pytest
+ruff check . && ruff format --check .
+```
+
+GitHub Actions spouští testy, `hassfest` a validaci HACS.
 
 ## Zdroj dat
 

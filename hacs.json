@@ -1,7 +1,8 @@
 {
   "name": "Turnov Třídí – Svoz odpadu",
   "render_readme": true,
-  "domains": ["sensor"],
-  "country": ["CZ"],
-  "homeassistant": "2024.1.0"
+  "country": [
+    "CZ"
+  ],
+  "homeassistant": "2025.1.0"
 }

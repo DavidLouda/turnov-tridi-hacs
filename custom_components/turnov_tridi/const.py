@@ -34,5 +34,12 @@ WASTE_TYPES = {
     },
 }
 
+# Waste key -> waste type info
+WASTE_TYPES_BY_KEY = {wt["key"]: wt for wt in WASTE_TYPES.values()}
+
 # Default update interval in hours
 DEFAULT_UPDATE_INTERVAL_HOURS = 6
+
+# Lovelace card served by the integration
+CARD_FILENAME = "turnov-tridi-card.js"
+CARD_URL = f"/{DOMAIN}/{CARD_FILENAME}"

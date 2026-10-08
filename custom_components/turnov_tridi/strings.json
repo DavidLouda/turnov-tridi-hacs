@@ -2,38 +2,46 @@
   "config": {
     "step": {
       "user": {
-        "title": "Nastavení svozu odpadu",
-        "description": "Zadejte název ulice v Turnově pro zobrazení termínů svozu odpadu.",
+        "title": "Waste collection setup",
+        "description": "Enter the street name in Turnov to display waste collection schedules.",
         "data": {
-          "street": "Název ulice"
+          "street": "Street name"
+        }
+      },
+      "reconfigure": {
+        "title": "Change street",
+        "description": "Enter the new street in Turnov. Existing sensors are kept.",
+        "data": {
+          "street": "Street name"
         }
       }
     },
     "error": {
-      "cannot_connect": "Nepodařilo se připojit k serveru turnovtridi.cz",
-      "no_data": "Pro zadanou ulici nebyla nalezena žádná data o svozu. Zkontrolujte název ulice.",
-      "unknown": "Neočekávaná chyba"
+      "cannot_connect": "Failed to connect to turnovtridi.cz",
+      "no_data": "No collection data found for the given street. Please check the street name.",
+      "unknown": "Unexpected error"
     },
     "abort": {
-      "already_configured": "Tato ulice je již nakonfigurována"
+      "already_configured": "This street is already configured",
+      "reconfigure_successful": "The street was changed successfully"
     }
   },
   "entity": {
     "sensor": {
       "mixed_waste": {
-        "name": "Směsný komunální odpad"
+        "name": "Mixed municipal waste"
       },
       "plastic": {
-        "name": "Plasty"
+        "name": "Plastic"
       },
       "paper": {
-        "name": "Papír"
+        "name": "Paper"
       },
       "bio_waste": {
-        "name": "Bio odpad"
+        "name": "Bio waste"
       },
       "next_collection": {
-        "name": "Nejbližší svoz"
+        "name": "Next collection"
       }
     }
   }
