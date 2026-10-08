@@ -2,8 +2,10 @@
  * Turnov Třídí – Lovelace Card
  * Custom card for displaying waste collection schedules in Turnov.
  * 
- * Version: 1.0.0
+ * Version: 1.1.0
  */
+
+const CARD_VERSION = '1.1.0';
 
 const WASTE_CONFIG = {
   mixed_waste: {
@@ -46,12 +48,23 @@ const MONTHS_CS = [
   'července', 'srpna', 'září', 'října', 'listopadu', 'prosince',
 ];
 
+const escapeHtml = (value) => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
+const localDateKey = (date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
 class TurnovTridiCard extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
     this._config = {};
     this._hass = null;
+    this._renderedStates = null;
   }
 
   static getConfigElement() {
@@ -78,11 +91,26 @@ class TurnovTridiCard extends HTMLElement {
       compact: config.compact || false,
       ...config,
     };
+    this._renderedStates = null;
+    if (this._hass) this._render();
   }
 
   set hass(hass) {
     this._hass = hass;
-    this._render();
+    const entities = this._getEntities();
+    // hass is set on every state change in HA; re-render only when our sensors changed
+    const states = Object.keys(entities).sort().map(key => entities[key]);
+    if (
+      this._renderedStates &&
+      states.length === this._renderedStates.length &&
+      states.every((state, i) => state === this._renderedStates[i]) &&
+      this._renderedDay === new Date().getDate()
+    ) {
+      return;
+    }
+    this._renderedStates = states;
+    this._renderedDay = new Date().getDate();
+    this._render(entities);
   }
 
   _getEntities() {
@@ -98,36 +126,59 @@ class TurnovTridiCard extends HTMLElement {
           entities[key] = this._hass.states[entityId];
         }
       }
-    } else {
-      // Auto-discover based on entity_id or street
-      const search = this._config.entity
-        ? this._config.entity.replace(/^sensor\./, '').replace(/_nejblizsi_svoz$|_next_collection$/, '')
-        : null;
+      return entities;
+    }
 
-      for (const entityId of allEntityIds) {
-        if (!entityId.startsWith('sensor.')) continue;
-
+    // Preferred: all sensors of the same device as the configured entity
+    const registry = this._hass.entities;
+    const deviceId = this._config.entity && registry && registry[this._config.entity]
+      ? registry[this._config.entity].device_id
+      : null;
+    if (deviceId) {
+      for (const [entityId, entry] of Object.entries(registry)) {
+        if (entry.device_id !== deviceId || !entityId.startsWith('sensor.')) continue;
         const state = this._hass.states[entityId];
+        if (!state) continue;
         const attrs = state.attributes || {};
-
-        // Match by street attribute or entity ID pattern
-        const matchByStreet = this._config.street &&
-          attrs.street && attrs.street.toLowerCase() === this._config.street.toLowerCase();
-        const matchByEntity = search && entityId.includes(search);
-
-        if (matchByStreet || matchByEntity) {
-          if (entityId.includes('smesny') || entityId.includes('mixed_waste') || attrs.waste_type === 'Směsný komunální odpad') {
-            entities.mixed_waste = state;
-          } else if (entityId.includes('plast') || entityId.includes('plastic') || attrs.waste_type === 'Plasty') {
-            entities.plastic = state;
-          } else if (entityId.includes('papir') || entityId.includes('paper') || attrs.waste_type === 'Papír') {
-            entities.paper = state;
-          } else if (entityId.includes('bio') || entityId.includes('bio_waste') || attrs.waste_type === 'Bio odpad') {
-            entities.bio_waste = state;
-          } else if (entityId.includes('nejblizsi') || entityId.includes('next_collection')) {
-            entities.next_collection = state;
-          }
+        if (attrs.waste_key && WASTE_CONFIG[attrs.waste_key]) {
+          entities[attrs.waste_key] = state;
+        } else if (Array.isArray(attrs.waste_keys) || attrs.upcoming_summary) {
+          entities.next_collection = state;
         }
+      }
+      if (Object.keys(entities).some(key => WASTE_CONFIG[key])) return entities;
+    }
+
+    // Fallback: auto-discover based on entity_id or street
+    const search = this._config.entity
+      ? this._config.entity.replace(/^sensor\./, '').replace(/_nejblizsi_svoz$|_next_collection$/, '')
+      : null;
+
+    for (const entityId of allEntityIds) {
+      if (!entityId.startsWith('sensor.')) continue;
+
+      const state = this._hass.states[entityId];
+      const attrs = state.attributes || {};
+
+      // Match by street attribute or entity ID pattern
+      const matchByStreet = this._config.street &&
+        attrs.street && attrs.street.toLowerCase() === this._config.street.toLowerCase();
+      const matchByEntity = search && entityId.includes(search);
+      if (!matchByStreet && !matchByEntity) continue;
+
+      // The next collection sensor also has a waste_type attribute, so detect it first
+      if (attrs.upcoming_summary || entityId.includes('nejblizsi') || entityId.includes('next_collection')) {
+        entities.next_collection = state;
+      } else if (attrs.waste_key && WASTE_CONFIG[attrs.waste_key]) {
+        entities[attrs.waste_key] = state;
+      } else if (entityId.includes('smesny') || entityId.includes('mixed') || attrs.waste_type === 'Směsný komunální odpad') {
+        entities.mixed_waste = state;
+      } else if (entityId.includes('plast') || attrs.waste_type === 'Plasty') {
+        entities.plastic = state;
+      } else if (entityId.includes('papir') || entityId.includes('paper') || attrs.waste_type === 'Papír') {
+        entities.paper = state;
+      } else if (entityId.includes('bio') || attrs.waste_type === 'Bio odpad') {
+        entities.bio_waste = state;
       }
     }
 
@@ -161,11 +212,10 @@ class TurnovTridiCard extends HTMLElement {
     if (days === 0) return { text: 'DNES', class: 'badge-today' };
     if (days === 1) return { text: 'ZÍTRA', class: 'badge-tomorrow' };
     if (days < 0) return { text: 'Proběhl', class: 'badge-neutral' };
-    return { text: `za ${days} dn${days === 1 ? 'í' : days < 5 ? 'y' : 'í'}`, class: 'badge-future' };
+    return { text: `za ${days} ${days < 5 ? 'dny' : 'dní'}`, class: 'badge-future' };
   }
 
-  _render() {
-    const entities = this._getEntities();
+  _render(entities = this._getEntities()) {
     const wasteItems = [];
 
     for (const [key, cfg] of Object.entries(WASTE_CONFIG)) {
@@ -222,7 +272,7 @@ class TurnovTridiCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>${this._getStyles()}</style>
       <ha-card>
-        ${this._config.show_header ? this._renderHeader(nextItem) : ''}
+        ${this._config.show_header ? this._renderHeader(nextItem, wasteItems) : ''}
         <div class="card-content ${this._config.compact ? 'compact' : ''}">
           <div class="waste-grid">
             ${wasteItems.map(item => this._renderWasteItem(item, item === nextItem)).join('')}
@@ -245,7 +295,8 @@ class TurnovTridiCard extends HTMLElement {
     });
   }
 
-  _renderHeader(nextItem) {
+  _renderHeader(nextItem, wasteItems) {
+    const title = escapeHtml(this._config.title);
     if (!nextItem || nextItem.days === null) {
       return `
         <div class="card-header">
@@ -254,7 +305,7 @@ class TurnovTridiCard extends HTMLElement {
               <ha-icon icon="mdi:delete-empty-outline"></ha-icon>
             </div>
             <div class="header-text">
-              <div class="header-title">${this._config.title}</div>
+              <div class="header-title">${title}</div>
               <div class="header-subtitle">Žádný plánovaný svoz</div>
             </div>
           </div>
@@ -263,6 +314,10 @@ class TurnovTridiCard extends HTMLElement {
     }
 
     const badge = nextItem.badge;
+    const labels = wasteItems
+      .filter(item => item.days === nextItem.days)
+      .map(item => item.label)
+      .join(' + ');
     return `
       <div class="card-header" style="--accent-color: ${nextItem.color}; --accent-gradient: ${nextItem.gradient}">
         <div class="header-content">
@@ -270,9 +325,9 @@ class TurnovTridiCard extends HTMLElement {
             <ha-icon icon="${nextItem.icon}"></ha-icon>
           </div>
           <div class="header-text">
-            <div class="header-title">${this._config.title}</div>
+            <div class="header-title">${title}</div>
             <div class="header-subtitle">
-              Další svoz: <strong>${nextItem.label}</strong> · ${nextItem.dateHuman}
+              Další svoz: <strong>${labels}</strong> · ${nextItem.dateHuman}
             </div>
           </div>
           <div class="header-badge ${badge.class}">${badge.text}</div>
@@ -285,7 +340,7 @@ class TurnovTridiCard extends HTMLElement {
     return `
       <div class="waste-item ${isNext ? 'is-next' : ''} ${item.days === 0 ? 'is-today' : ''}"
            style="--item-color: ${item.color}; --item-gradient: ${item.gradient}; --item-bg-light: ${item.bgLight}; --item-bg-dark: ${item.bgDark}"
-           ${item.entityId ? `data-entity-id="${item.entityId}"` : ''}>
+           ${item.entityId ? `data-entity-id="${escapeHtml(item.entityId)}"` : ''}>
         <div class="waste-item-indicator"></div>
         <div class="waste-item-icon">
           <ha-icon icon="${item.icon}"></ha-icon>
@@ -303,7 +358,7 @@ class TurnovTridiCard extends HTMLElement {
     // Group by date
     const grouped = {};
     for (const item of items) {
-      const key = item.date.toISOString().split('T')[0];
+      const key = localDateKey(item.date);
       if (!grouped[key]) {
         grouped[key] = {
           date: item.date,
@@ -838,11 +893,11 @@ class TurnovTridiCardEditor extends HTMLElement {
       <div class="editor">
         <div class="row">
           <label>Entity (senzor nejbližšího svozu)</label>
-          <input type="text" id="entity" value="${this._config.entity || ''}" placeholder="sensor.svoz_odpadu_karovsko_nejblizsi_svoz">
+          <input type="text" id="entity" value="${escapeHtml(this._config.entity || '')}" placeholder="sensor.svoz_odpadu_karovsko_nejblizsi_svoz">
         </div>
         <div class="row">
           <label>Název karty</label>
-          <input type="text" id="title" value="${this._config.title || 'Svoz odpadu'}">
+          <input type="text" id="title" value="${escapeHtml(this._config.title || 'Svoz odpadu')}">
         </div>
         <div class="checkbox-row">
           <input type="checkbox" id="show_header" ${this._config.show_header !== false ? 'checked' : ''}>
@@ -887,20 +942,23 @@ class TurnovTridiCardEditor extends HTMLElement {
   }
 }
 
-customElements.define('turnov-tridi-card', TurnovTridiCard);
-customElements.define('turnov-tridi-card-editor', TurnovTridiCardEditor);
+// The card may also be loaded through an old manually added dashboard resource
+if (!customElements.get('turnov-tridi-card')) {
+  customElements.define('turnov-tridi-card', TurnovTridiCard);
+  customElements.define('turnov-tridi-card-editor', TurnovTridiCardEditor);
 
-window.customCards = window.customCards || [];
-window.customCards.push({
-  type: 'turnov-tridi-card',
-  name: 'Turnov Třídí – Svoz odpadu',
-  description: 'Přehledná karta zobrazující termíny svozu odpadu v Turnově.',
-  preview: true,
-  documentationURL: 'https://github.com/DavidLouda/turnov-tridi-hacs',
-});
+  window.customCards = window.customCards || [];
+  window.customCards.push({
+    type: 'turnov-tridi-card',
+    name: 'Turnov Třídí – Svoz odpadu',
+    description: 'Přehledná karta zobrazující termíny svozu odpadu v Turnově.',
+    preview: true,
+    documentationURL: 'https://github.com/DavidLouda/turnov-tridi-hacs',
+  });
+}
 
 console.info(
-  '%c TURNOV-TŘÍDÍ-CARD %c v1.0.0 ',
+  `%c TURNOV-TŘÍDÍ-CARD %c v${CARD_VERSION} `,
   'color: white; background: #10B981; font-weight: bold; padding: 2px 6px; border-radius: 4px 0 0 4px;',
   'color: #10B981; background: #ECFDF5; font-weight: bold; padding: 2px 6px; border-radius: 0 4px 4px 0;',
 );
